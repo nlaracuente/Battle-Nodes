@@ -52,7 +52,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   settings:
-    url: battle-nodes.herokuapp.com
+    url: battle-nodez.herokuapp.com
     port: 80
     sslEnabled: 0
     reconnectTime: 500

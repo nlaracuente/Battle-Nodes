@@ -133,6 +133,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   localPlayerId: 
+  uiCamera: {fileID: 0}
   playerPrefab: {fileID: 1867391147250184, guid: 0cd6d83a8b3e440d691e4c27d705dc19,
     type: 2}
   localCameraPrefab: {fileID: 1559009461322030, guid: 7e1755e016c20c7458e9145d897fa56a,

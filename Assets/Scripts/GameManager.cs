@@ -45,6 +45,12 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// A reference to the UI camera which is used to toggle showing the player the different title screens
+    /// </summary>
+    [SerializeField]
+    Camera uiCamera;
+
+    /// <summary>
     /// Contains a list of active users associated by their name
     /// </summary>
     Dictionary<string, Player> activeUsers = new Dictionary<string, Player>();
@@ -125,14 +131,19 @@ public class GameManager : MonoBehaviour
         //this.RegisterPlayer("rodil", "monkeyKing", 1);
         //this.RegisterPlayer("shaun", "LobsterMan", 2);
         //this.RegisterPlayer("mikesk", "IHaveAnIdea", 3);
+        //this.RegisterPlayer("shaun", "LobsterMan", 2);
+        //this.RegisterPlayer("nelson_l", "bluehash39", 0);
+
         //this.OnAllPlayersReady();
+        // StartCoroutine(this.NotifyGameOver());
     }
 #endif
     #endregion
 
     /// <summary>
     /// Registers the given player as the local player so that all user driven
-    /// events only occurs for this local user
+    /// events only occurs for this local user and notifies that this player is
+    /// ready to play the game
     /// </summary>
     /// <param name="playerId"></param>
     /// <param name="playerName"></param>
@@ -141,6 +152,7 @@ public class GameManager : MonoBehaviour
     {
         this.localPlayerId = playerId;
         this.RegisterPlayer(playerId, playerName, spawnIndex, true);
+        this.NotifyPlayerReady(playerId);
     }
 
     /// <summary>
@@ -150,19 +162,25 @@ public class GameManager : MonoBehaviour
     /// <param name="playerId"></param>
     public void RegisterPlayer(string playerId, string playerName, int spawnIndex, bool isLocalPlayer = false)
     {
-        // Player already registered
-        if (this.activeUsers.ContainsKey(playerId)) {
-            return;
-        }
-
         // Index not recognized
-        if (spawnIndex < 0 || spawnIndex > this.spawnPoints.Length - 1) {
+        if (spawnIndex < 0 || spawnIndex >= this.spawnPoints.Length) {
             Debug.Log("Spawn Index: " + spawnIndex + " not recognized. Using a random one instead");
             spawnIndex = Random.Range(0, this.spawnPoints.Length);
         }
 
         // Position and Color for the tank
         SpawnPointInfoStruct spawnInfo = this.spawnPoints[spawnIndex];
+
+        // Player already registered?
+        // Then make sure that we still have the correct position and player name associtaed with them
+        // Also, make sure the colors are correct
+        if (this.activeUsers.ContainsKey(playerId)) {
+            Player activeplayer = this.activeUsers[playerId];            
+            activeplayer.GamerTag = playerName;
+            activeplayer.transform.position = spawnInfo.transform.position;
+            activeplayer.MeshRendererMaterial = spawnInfo.material;
+            return;
+        }
 
         // Set the spawn point
         Vector3 spawnPoint = spawnInfo.transform.position;
@@ -178,7 +196,6 @@ public class GameManager : MonoBehaviour
         // Container for this new player
         GameObject playerContainerGO = new GameObject(playerId);
         playerContainerGO.transform.SetParent(mainContainerGO.transform);
-
 
         GameObject camPrefab = this.socketCameraPrefab;
         if (isLocalPlayer) {
@@ -237,8 +254,7 @@ public class GameManager : MonoBehaviour
 
         Player player = this.activeUsers[playerId];
         Debug.Log("Player " + player.gameObject + " has left the game");
-        Destroy(player.gameObject);
-        // this.activeUsers.Remove(playerId);
+        this.OnPlayerDefeated(playerId);
     }
 
 	/// <summary>
@@ -260,12 +276,21 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void CheckForGameOver()
     {
-        if(this.defeatedUsers.Count == this.activeUsers.Count - 1) {
+        if(this.defeatedUsers.Count >= this.activeUsers.Count - 1) {
             StartCoroutine(this.NotifyGameOver());
         }
     }
 
     #region Notifiers
+    /// <summary>
+    /// Notifies the game server that this player is ready
+    /// </summary>
+    /// <param name="playerId"></param>
+    public void NotifyPlayerReady(string playerId)
+    {
+        SocketManager.instance.NotifyPlayerReady(playerId);
+    }
+    
     /// <summary>
     /// Notifies the socket manager to broadcast a player movement request
     /// </summary>
@@ -274,7 +299,7 @@ public class GameManager : MonoBehaviour
     public void NotifyPlayerMovement(string playerId, Vector3 targetPosition)
     {
         this.OnPlayerMove(playerId, targetPosition);
-        SocketManager.instance.notifyPlayerMove(playerId, targetPosition);
+        SocketManager.instance.NotifyPlayerMove(playerId, targetPosition);
     }
 
     /// <summary>
@@ -285,28 +310,28 @@ public class GameManager : MonoBehaviour
     public void NotifyPlayerTurretRotation(string playerId, Vector3 targetLookAt)
     {
         this.OnPlayerTurretRotate(playerId, targetLookAt);
-        SocketManager.instance.notifyPlayerTurretRotation(playerId, targetLookAt);
+        SocketManager.instance.NotifyPlayerTurretRotation(playerId, targetLookAt);
     }
 
     /// <summary>
     /// Notifies the socket manager that a player initated an attack
     /// </summary>
     /// <param name="playerId"></param>
-    public void NotifyPlayerAttack(string playerId, float force)
+    public void NotifyPlayerAttack(string playerId, float force, Vector3 turretRotation)
     {
-        this.OnPlayerAttack(playerId, force);
-        SocketManager.instance.notifyPlayerAttack(playerId, Vector3.zero, force);
+        this.OnPlayerAttack(playerId, force, turretRotation);
+        SocketManager.instance.NotifyPlayerAttack(playerId, force, turretRotation);
     }
 
     /// <summary>
     /// Notifies the socket manager that a player has been damaged
     /// </summary>
     /// <param name="playerId"></param>
-    /// <param name="damage"></param>
-    public void NotifyPlayerDamaged(string attackerId, string otherPlayerId, int damage)
+    /// <param name="newHealth"></param>
+    public void NotifyPlayerDamaged(string attackerId, string otherPlayerId, int newHealth)
     {
-        this.OnPlayerDamaged(attackerId, otherPlayerId, damage);
-        SocketManager.instance.notifyPlayerDamaged(attackerId, otherPlayerId, damage);
+        this.OnPlayerDamaged(attackerId, otherPlayerId, newHealth);
+        SocketManager.instance.NotifyPlayerDamaged(attackerId, otherPlayerId, newHealth);
     }
 
     /// <summary>
@@ -316,7 +341,7 @@ public class GameManager : MonoBehaviour
     public void NotifyPlayerDefeated(string playerId)
     {
         this.OnPlayerDefeated(playerId);
-        SocketManager.instance.notifyPlayerDefeated(playerId);
+        SocketManager.instance.NotifyPlayerDefeated(playerId);
     }
 
     /// <summary>
@@ -331,14 +356,14 @@ public class GameManager : MonoBehaviour
         // Failsafe, defaults to this player in the event we can't determine who won
         string winnerId = this.LocalPlayerId;
 
-        foreach(string activeUserId in this.activeUsers.Keys) {
+        foreach (string activeUserId in this.activeUsers.Keys) {
             // User is not defeated...must be the winner
             if (!this.defeatedUsers.Contains(activeUserId)) {
                 winnerId = activeUserId;
             }
         }
 
-        SocketManager.instance.notifyGameOver(winnerId);
+        SocketManager.instance.NotifyGameOver(winnerId);
     }
 
     /// <summary>
@@ -348,8 +373,7 @@ public class GameManager : MonoBehaviour
     IEnumerator RedirectToLobby()
     {
         yield return new WaitForSeconds(this.redirectToLobbyDelay);
-        //SocketManager.instance.redirectBackToLobby();
-        Application.ExternalEval("location = '/'");
+        Application.ExternalEval("location = '/leaders'");
     }
     #endregion
 
@@ -359,8 +383,15 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void OnAllPlayersReady()
     {
-        Debug.Log("All Players ready");
         this.MainCanvas.HideTitleScreen();
+
+        // Activate the players
+        // Disable all players and cameras to be safe
+        foreach (KeyValuePair<string, Player> activePlayer in this.activeUsers) {
+            Player player = activePlayer.Value;
+            player.IsDisabled = false;
+        }
+
     }
 
     /// <summary>
@@ -401,7 +432,7 @@ public class GameManager : MonoBehaviour
     /// Triggers the specify player to attack
     /// </summary>
     /// <param name="playerId"></param>
-    public void OnPlayerAttack(string playerId, float force)
+    public void OnPlayerAttack(string playerId, float force, Vector3 turretRotation)
     {
         // Unknown user
         if (!this.activeUsers.ContainsKey(playerId)) {
@@ -410,7 +441,7 @@ public class GameManager : MonoBehaviour
         }
 
         Player player = this.activeUsers[playerId];
-        player.Attack(force);
+        player.Attack(force, turretRotation);
     }
 
     /// <summary>
@@ -420,8 +451,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     /// <param name="attackerId"></param>
     /// <param name="otherPlayerId"></param>
-    /// <param name="damage"></param>
-    public void OnPlayerDamaged(string attackerId, string otherPlayerId, int damage)
+    /// <param name="newHealth"></param>
+    public void OnPlayerDamaged(string attackerId, string otherPlayerId, int newHealth)
     {
         // Unknown user
         if (!this.activeUsers.ContainsKey(otherPlayerId)) {
@@ -430,7 +461,7 @@ public class GameManager : MonoBehaviour
         }
 
         Player player = this.activeUsers[otherPlayerId];
-        player.Damaged(damage);
+        player.Damaged(newHealth);
     }
 
     /// <summary>
@@ -445,6 +476,9 @@ public class GameManager : MonoBehaviour
             return;
         }
 
+        // Register the defeated user
+        this.defeatedUsers.Add(playerId);
+
         Player player = this.activeUsers[playerId];
         player.Defeated(playerId);
     }
@@ -455,7 +489,13 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void OnGameOver(string winnerId)
     {
-        if(winnerId == this.LocalPlayerId) {
+        // Disable all players and cameras to be safe
+        foreach (KeyValuePair<string,Player> activePlayer in this.activeUsers) {
+            Player player = activePlayer.Value;
+            player.IsDisabled = true;
+        }
+
+        if (winnerId == this.LocalPlayerId) {
             MainCanvas.ShowVictoryScreen();
         } else {
             MainCanvas.ShowDefeatedScreen();

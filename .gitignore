@@ -1,5 +1,5 @@
 UnityPackageManager
-Assets/UnitySocketIO
+Assets/UnitySocketIO*
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/

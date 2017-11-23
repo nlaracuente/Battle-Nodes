@@ -96,7 +96,7 @@ public class TankShell : MonoBehaviour
             if (otherPlayer.PlayerId == this.playerId) {
                 return;
             }
-            GameManager.instance.NotifyPlayerDamaged(this.playerId, otherPlayer.PlayerId, this.damagePower);
+            GameManager.instance.NotifyPlayerDamaged(this.playerId, otherPlayer.PlayerId, otherPlayer.Health - this.damagePower);
         }
 
 		this.ShellCollision();   
@@ -108,14 +108,14 @@ public class TankShell : MonoBehaviour
     /// <param name="collision"></param>
     private void OnCollisionEnter(Collision collision)
     {
-        //Player player = collision.gameObject.GetComponent<Player>();
+        Player player = collision.gameObject.GetComponent<Player>();
 
-        //// Avoid the owner
-        //if (player != null && player.PlayerId == this.ownerName) {
-        //    return;
-        //}
-        
-		this.ShellCollision();
+        // Avoid the owner
+        if (player != null && player.PlayerId == this.playerId) {
+            return;
+        }
+
+        this.ShellCollision();
     }
 
     /// <summary>

@@ -3,26 +3,27 @@ using System.Collections;
 using UnitySocketIO;
 using UnitySocketIO.Events;
 
+/// <summary>
+/// Manager for all network communications with socket io
+/// </summary>
 public class SocketManager : MonoBehaviour
 {
     /// A reference to the SocketManager instance
     public static SocketManager instance = null;
+    private Vector3 lastTargetToLookAt;
 
     /// A reference to the socket.io 
     [SerializeField]
     SocketIOController io;
 
-    private Vector3 lastTargetToLookAt;
-
+    /// <summary>
     /// Sets the instance of the SocketManager and makes it persistent
+    /// </summary>
     void Awake()
     {
-        if (instance == null)
-        {
+        if (instance == null){
             instance = this;
-        }
-        else if (instance != this)
-        {
+        } else if (instance != this){
             Destroy(gameObject);
         }
 
@@ -32,8 +33,8 @@ public class SocketManager : MonoBehaviour
     void Start()
     {
 
-#if UNITY_WEBGL
-        string url = "battle-nodes.herokuapp.com";
+    #if UNITY_WEBGL
+        string url = "battle-nodez.herokuapp.com";
         int port = 80;
 
 
@@ -48,44 +49,43 @@ public class SocketManager : MonoBehaviour
 
         io.settings.url = url;
         io.settings.port = port;
-#endif
+    #endif
 
         Debug.Log("SocketIO connected");
-        io.On("connect", handleConnect);
-        io.On("identity", handleIdentity);
-        io.On("allplayersready", handleAllPlayersReady);
-        io.On("gameinfo", handleGameInfo);
+        io.On("connect", this.HandleConnect);
+        io.On("identity", this.HandleIdentity);
+        io.On("allplayersready", this.HandleAllPlayersReady);
+        io.On("gameinfo", this.HandleGameInfo);
 
-        io.On("playerMove", handlePlayerMove);
-        io.On("turretRotate", handleTurretRotate);
-        io.On("attack", handleAttack);
-        io.On("damage", handleDamage);
+        io.On("playerMove", this.HandlePlayerMove);
+        io.On("turretRotate", this.HandleTurretRotate);
+        io.On("attack", this.HandleAttack);
+        io.On("damage", this.HandleDamage);
 
-        io.On("playerDefeated", handlePlayerDefeated);
-        io.On("gameOver", handleGameOver);
-        io.On("gameover", handleGameOver);
+        io.On("playerDefeated", this.HandlePlayerDefeated);
+        io.On("gameOver", this.HandleGameOver);
+        // io.On("gameover", this.HandleGameOver);
 
-        io.On("playerLeft", handlePlayerLeft);
+        io.On("playerLeft", this.HandlePlayerLeft);
 
         io.Connect();
     }
 
-    void handleConnect (SocketIOEvent e) {
+    void HandleConnect (SocketIOEvent e) {
         Debug.Log("SocketIO connected");
-        if (string.IsNullOrEmpty(GameManager.instance.LocalPlayerId))
-        {
-#if UNITY_EDITOR || UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX
+        if (string.IsNullOrEmpty(GameManager.instance.LocalPlayerId)) {
+        #if UNITY_EDITOR || UNITY_STANDALONE_WIN || UNITY_STANDALONE_OSX
             io.Emit("getmockidentity");
-            io.Emit("playerready");
             GameManager.instance.OnAllPlayersReady();
-#else
+        #endif
+
+        #if UNITY_WEBGL
             io.Emit("getidentity");
-            io.Emit("playerready");
-#endif
+        #endif
         }
     }
 
-    void handleIdentity(SocketIOEvent e)
+    void HandleIdentity(SocketIOEvent e)
     {
         Debug.Log("handleIdentity");
         Debug.Log(e.data);
@@ -94,7 +94,7 @@ public class SocketManager : MonoBehaviour
         //io.Emit("getgameinfo");
     }
 
-    void handleGameInfo(SocketIOEvent e)
+    void HandleGameInfo(SocketIOEvent e)
     {
         Debug.Log("handleGameInfo");
         Debug.Log(e.data);
@@ -105,13 +105,14 @@ public class SocketManager : MonoBehaviour
         }
     }
 
-    void handleAllPlayersReady(SocketIOEvent e)
+    void HandleAllPlayersReady(SocketIOEvent e)
     {
+        Debug.Log("********* allplayersready event *********");
         Debug.Log("handleAllPlayersReady");
         GameManager.instance.OnAllPlayersReady();
     }
 
-    void handlePlayerMove(SocketIOEvent e)
+    void HandlePlayerMove(SocketIOEvent e)
     {
         //Debug.Log("handlePlayerMove");
         //Debug.Log(e.data);
@@ -120,7 +121,7 @@ public class SocketManager : MonoBehaviour
 
     }
 
-    void handleTurretRotate(SocketIOEvent e)
+    void HandleTurretRotate(SocketIOEvent e)
     {
         //Debug.Log("handleTurretRotate");
         //Debug.Log(e.data);
@@ -128,15 +129,16 @@ public class SocketManager : MonoBehaviour
         GameManager.instance.OnPlayerTurretRotate(turretRotationMessage.id, new Vector3(turretRotationMessage.x, turretRotationMessage.y, turretRotationMessage.z));
     }
 
-    void handleAttack(SocketIOEvent e)
+    void HandleAttack(SocketIOEvent e)
     {
         //Debug.Log("handleAttack");
         //Debug.Log(e.data);
         PlayerAttackStruct attackMessage = JsonUtility.FromJson<PlayerAttackStruct>(e.data);
-        GameManager.instance.OnPlayerAttack(attackMessage.id, attackMessage.force);
+        Vector3 turretRotation = new Vector3(attackMessage.x, attackMessage.y, attackMessage.z);
+        GameManager.instance.OnPlayerAttack(attackMessage.id, attackMessage.force, turretRotation);
     }
 
-    void handleDamage(SocketIOEvent e)
+    void HandleDamage(SocketIOEvent e)
     {
         Debug.Log("handleDamage");
         Debug.Log(e.data);
@@ -144,18 +146,14 @@ public class SocketManager : MonoBehaviour
         GameManager.instance.OnPlayerDamaged(damageMessage.attackerId, damageMessage.damagedPlayerId, damageMessage.damage);
     }
 
-
-    //handlePlayerDefeated
-    //handleGameOver
-
-    void handlePlayerDefeated(SocketIOEvent e) {
+    void HandlePlayerDefeated(SocketIOEvent e) {
         Debug.Log("handlePlayerDefeated");
         Debug.Log(e.data);
         PlayerIdStruct message = JsonUtility.FromJson<PlayerIdStruct>(e.data);
         GameManager.instance.OnPlayerDefeated(message.id);
     }
 
-    void handleGameOver(SocketIOEvent e)
+    void HandleGameOver(SocketIOEvent e)
     {
         Debug.Log("handleGameOver");
         Debug.Log(e.data);
@@ -163,8 +161,7 @@ public class SocketManager : MonoBehaviour
         GameManager.instance.OnGameOver(message.id);
     }
 
-
-    void handlePlayerLeft(SocketIOEvent e)
+    void HandlePlayerLeft(SocketIOEvent e)
     {
         Debug.Log("handlePlayerLeft");
         Debug.Log(e.data);
@@ -172,12 +169,18 @@ public class SocketManager : MonoBehaviour
         GameManager.instance.UnregisterPlayer(disconnectMessage.id);
     }
 
-    public void notifyPlayerMove(string id, Vector3 destination) {
+    public void NotifyPlayerReady(string id)
+    {
+        PlayerIdStruct message = new PlayerIdStruct(id);
+        io.Emit("playerready", JsonUtility.ToJson(message));
+    }
+
+    public void NotifyPlayerMove(string id, Vector3 destination) {
         PlayerMovementStruct moveMessage = new PlayerMovementStruct(id, destination.x, destination.y, destination.z);
         io.Emit("playerMove", JsonUtility.ToJson(moveMessage));
     }
 
-    public void notifyPlayerTurretRotation(string playerId, Vector3 targetLookAt) {
+    public void NotifyPlayerTurretRotation(string playerId, Vector3 targetLookAt) {
         if(lastTargetToLookAt != targetLookAt) {
             PlayerMovementStruct turretRotationMessage = new PlayerMovementStruct(playerId, targetLookAt.x, targetLookAt.y, targetLookAt.z);
             io.Emit("turretRotate", JsonUtility.ToJson(turretRotationMessage));
@@ -185,27 +188,27 @@ public class SocketManager : MonoBehaviour
         }
     }
 
-    public void notifyPlayerAttack(string playerId, Vector3 direction, float force) {
-        PlayerAttackStruct attackMessage = new PlayerAttackStruct(playerId, direction.x, direction.y, direction.z, force);
+    public void NotifyPlayerAttack(string playerId, float force, Vector3 turretRotation) {
+        PlayerAttackStruct attackMessage = new PlayerAttackStruct(playerId, turretRotation.x, turretRotation.y, turretRotation.z, force);
         io.Emit("attack", JsonUtility.ToJson(attackMessage));
     }
 
-    public void notifyPlayerDamaged(string attackerId, string damagedPlayerId, int damage) {
+    public void NotifyPlayerDamaged(string attackerId, string damagedPlayerId, int damage) {
         DamageStruct damageMessage = new DamageStruct(attackerId, damagedPlayerId, damage);
         io.Emit("damage", JsonUtility.ToJson(damageMessage));
     }
 
-    public void notifyGameOver(string id)
-    {
-        PlayerIdStruct message = new PlayerIdStruct(id);
-        io.Emit("gameOver", JsonUtility.ToJson(message));
-        io.Emit("gameover", JsonUtility.ToJson(message));
-    }
-
-    public void notifyPlayerDefeated(string id)
+    public void NotifyPlayerDefeated(string id)
     {
         PlayerIdStruct message = new PlayerIdStruct(id);
         io.Emit("playerDefeated", JsonUtility.ToJson(message));
+    }
+
+    public void NotifyGameOver(string id)
+    {
+        PlayerIdStruct message = new PlayerIdStruct(id);
+        io.Emit("gameOver", JsonUtility.ToJson(message));
+        GameManager.instance.OnGameOver(id);
     }
 
 }

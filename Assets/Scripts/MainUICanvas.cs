@@ -13,19 +13,19 @@ public class MainUICanvas : MonoBehaviour
     /// A reference to the title screen
     /// </summary>
     [SerializeField]
-    Image titleScreen;
+    GameObject titleScreen;
 
     /// <summary>
     /// A reference to the victory screen
     /// </summary>
     [SerializeField]
-    Image victoryScreen;
+    GameObject victoryScreen;
 
     /// <summary>
     /// A reference to the defeated screen
     /// </summary>
     [SerializeField]
-    Image defeatedScreen;
+    GameObject defeatedScreen;
 
     /// <summary>
     /// Disables the title screen
@@ -33,7 +33,7 @@ public class MainUICanvas : MonoBehaviour
 	public void HideTitleScreen()
     {
         if (this.titleScreen != null) {
-            this.titleScreen.enabled = false;
+            this.titleScreen.SetActive(false);
         }
     }
 
@@ -43,7 +43,7 @@ public class MainUICanvas : MonoBehaviour
     public void ShowVictoryScreen()
     {
         if (this.victoryScreen != null) {
-            this.victoryScreen.enabled = true;
+            this.victoryScreen.SetActive(true);
         }
     }
 
@@ -53,7 +53,7 @@ public class MainUICanvas : MonoBehaviour
     public void ShowDefeatedScreen()
     {
         if (this.defeatedScreen != null) {
-            this.defeatedScreen.enabled = true;
+            this.defeatedScreen.SetActive(true);
         }
     }
 }

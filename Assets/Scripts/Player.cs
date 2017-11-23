@@ -27,6 +27,7 @@ public class Player : MonoBehaviour
     public Vector3 TurretLookAt
     {
         set { this.turretLookAt = value; }
+        get { return this.turretLookAt; }
     }
 
     /// <summary>
@@ -206,10 +207,17 @@ public class Player : MonoBehaviour
 
     /// <summary>
     /// True prevents any actions from happening on the player
+    /// Defaults to true until the "all player ready" call is made
     /// </summary>
-    bool isDisabled = false;
+    bool isDisabled = true;
     public bool IsDisabled
     {
+        set {
+            if (value) {
+                this.navMeshAgent.isStopped = true;
+            }
+            this.isDisabled = value;
+        }
         get { return this.isDisabled; }
     }
 
@@ -315,11 +323,14 @@ public class Player : MonoBehaviour
     /// <summary>
     /// Spawns a tank shell and sets the association with this player
     /// </summary>
-    public void Attack(float force)
+    public void Attack(float force, Vector3 turretRotation)
     {
         if (this.isDisabled) {
             return;
         }
+
+        // Syncs up the rotations
+        this.turretLookAt = turretRotation;
 
         GameObject shellGO = Instantiate(this.shellPrefab, this.shellSpawnPoint.transform.position, this.shellSpawnPoint.transform.rotation);
         TankShell tankShell = shellGO.GetComponent<TankShell>();
@@ -328,15 +339,16 @@ public class Player : MonoBehaviour
     }
 
     /// <summary>
-    /// Inflicts damage on this player reducing its health by the given damage
+    /// Player was damage, updates the health to represent the damage inflcited
     /// </summary>
-    /// <param name="damage"></param>
-    public void Damaged(int damage)
+    /// <param name="newHealth"></param>
+    public void Damaged(int newHealth)
     {
         if (this.isDisabled) {
             return;
         }
-        this.Health -= damage;
+
+        this.Health = newHealth;
     }
 
     /// <summary>
@@ -347,15 +359,16 @@ public class Player : MonoBehaviour
     /// </summary>
     public void Defeated(string playerId)
     {
+        // Make sure they look dead
+        this.health = 0;
+
         // Already did...ignore the request
         if (this.isDisabled) {
             return;
         }
 
         // Disable and stop moving
-        this.isDisabled = true;
-        this.navMeshAgent.isStopped = true;
-
+        this.IsDisabled = true;
         Destroy(Instantiate(this.deathExplosion, this.transform.position, Quaternion.identity), 3f);
 
         foreach (MeshRenderer meshRenderer in this.tankRenderers) {
